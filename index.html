@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;width:100vw;height:100vh;overflow:hidden;font-family:Arial}
+
+#stage{
+position:absolute;left:0;top:0;right:340px;height:100%;
+background:url("background.png") center/cover no-repeat;
+}
+
+#penguinBox{
+position:absolute;width:420px;height:450px;
+left:50%;bottom:20px;transform:translateX(-50%);
+}
+
+#penguin{
+position:absolute;width:360px;left:30px;bottom:0;
+image-rendering:pixelated;cursor:pointer;
+}
+
+#accessory{
+position:absolute;display:none;width:100px;
+left:160px;top:80px;cursor:grab;
+image-rendering:pixelated;user-select:none;
+}
+
+#panel{
+position:absolute;right:20px;top:20px;width:300px;
+height:calc(100% - 40px);padding:22px;border-radius:25px;
+background:rgba(255,255,255,.93);
+box-shadow:0 10px 30px #5582a633;overflow:auto;
+}
+
+h2{color:#4e7498;margin:0 0 12px;font-size:20px}
+.control{margin-bottom:18px;color:#4e7498;font-weight:bold;font-size:13px}
+.label{display:flex;justify-content:space-between;margin-bottom:7px}
+input[type="range"]{width:100%;accent-color:#6396c0}
+
+button{
+border:0;border-radius:10px;padding:10px 5px;
+background:#e8f3fb;color:#4e7498;font-weight:bold;cursor:pointer;
+}
+
+button:hover{background:#cfe6f8}
+
+#dayNight{
+display:grid;grid-template-columns:1fr 1fr;
+gap:8px;margin-bottom:22px;
+}
+
+.modeBtn{font-size:14px;padding:12px}
+.modeBtn.active,.acc.active{background:#6396c0;color:white}
+
+#accessories{
+display:grid;grid-template-columns:repeat(3,1fr);
+gap:7px;margin-bottom:18px;
+}
+
+#move{
+display:grid;grid-template-columns:repeat(3,1fr);gap:7px;
+}
+
+#reset{
+width:100%;margin-top:18px;background:#6396c0;color:white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="stage">
+<div id="penguinBox">
+<img src="penguin_happy.png" id="penguin">
+<img id="accessory">
+</div>
+</div>
+
+<div id="panel">
+
+<h2>DAY / NIGHT</h2>
+
+<div id="dayNight">
+<button id="dayBtn" class="modeBtn active">☀ DAY</button>
+<button id="nightBtn" class="modeBtn">☾ NIGHT</button>
+</div>
+
+<h2>ENVIRONMENT</h2>
+
+<div class="control">
+<div class="label">
+<span>TEMPERATURE</span>
+<span id="tempNum">40</span>
+</div>
+<input type="range" id="temp" min="0" max="100" value="40">
+</div>
+
+<div class="control">
+<div class="label">
+<span>HUNGER</span>
+<span id="hungerNum">30</span>
+</div>
+<input type="range" id="hunger" min="0" max="100" value="30">
+</div>
+
+<div class="control">
+<div class="label">
+<span>ENERGY</span>
+<span id="energyNum">80</span>
+</div>
+<input type="range" id="energy" min="0" max="100" value="80">
+</div>
+
+<div class="control">
+<div class="label">
+<span>ICE LEVEL</span>
+<span id="iceNum">80</span>
+</div>
+<input type="range" id="ice" min="0" max="100" value="80">
+</div>
+
+<h2>ACCESSORY</h2>
+
+<div id="accessories">
+<button class="acc" onclick="selectAcc('beanie',this)">BEANIE</button>
+<button class="acc" onclick="selectAcc('bow',this)">BOW</button>
+<button class="acc" onclick="selectAcc('crown',this)">CROWN</button>
+<button class="acc" onclick="selectAcc('glasses',this)">GLASSES</button>
+<button class="acc" onclick="selectAcc('scarf',this)">SCARF</button>
+</div>
+
+<div class="control">
+<div class="label">
+<span>CUSTOM COLOR</span>
+<span id="colorNum">0</span>
+</div>
+<input type="range" id="color" min="0" max="360" value="0">
+</div>
+
+<h2>MOVE / SIZE</h2>
+
+<div id="move">
+<div></div>
+<button onclick="moveAcc(0,-5)">↑</button>
+<div></div>
+
+<button onclick="moveAcc(-5,0)">←</button>
+<button onclick="moveAcc(0,5)">↓</button>
+<button onclick="moveAcc(5,0)">→</button>
+
+<button onclick="sizeAcc(-5)">SIZE -</button>
+<div></div>
+<button onclick="sizeAcc(5)">SIZE +</button>
+</div>
+
+<button id="reset">RESET PENGUIN</button>
+
+</div>
+
+<audio id="snoringSound" src="snoring.mp3" loop></audio>
+<audio id="nightSound" src="nightsound.mp3" loop></audio>
+<audio id="stomachSound" src="stomach.mp3" loop></audio>
+<audio id="lowEnergySound" src="lowENERGY.mp3"></audio>
+<audio id="gaspSound" src="gasp.mp3"></audio>
+
+<script>
+
+let currentAcc="",night=false,sleeping=false;
+let dragging=false,startX=0,startY=0,startLeft=0,startTop=0;
+let energyPlayed=false;
+
+const files={
+beanie:"acc_beanie.png",
+bow:"acc_bow.png",
+crown:"acc_crown.png",
+glasses:"acc_glasses.png",
+scarf:"acc_scarf.png"
+};
+
+function stopSound(sound){
+sound.pause();
+sound.currentTime=0;
+}
+
+dayBtn.onclick=function(){
+night=false;
+sleeping=false;
+
+stage.style.backgroundImage='url("background.png")';
+
+dayBtn.classList.add("active");
+nightBtn.classList.remove("active");
+
+accessory.style.display=currentAcc==""?"none":"block";
+
+stopSound(snoringSound);
+stopSound(nightSound);
+
+updatePenguin();
+};
+
+nightBtn.onclick=function(){
+night=true;
+sleeping=true;
+
+stage.style.backgroundImage='url("night.png")';
+
+nightBtn.classList.add("active");
+dayBtn.classList.remove("active");
+
+penguin.src="penguin_sleep.png";
+accessory.style.display="none";
+
+stopSound(stomachSound);
+stopSound(lowEnergySound);
+
+snoringSound.volume=.7;
+nightSound.volume=.25;
+
+snoringSound.currentTime=0;
+nightSound.currentTime=0;
+
+snoringSound.play();
+nightSound.play();
+};
+
+penguin.onclick=function(){
+
+if(night && sleeping){
+
+sleeping=false;
+
+penguin.src="penguin_panic.png";
+
+stopSound(snoringSound);
+
+gaspSound.currentTime=0;
+gaspSound.play();
+
+}
+
+};
+
+function slider(input,number){
+number.innerHTML=input.value;
+if(!night)updatePenguin();
+}
+
+temp.oninput=function(){slider(temp,tempNum)};
+hunger.oninput=function(){slider(hunger,hungerNum)};
+energy.oninput=function(){slider(energy,energyNum)};
+ice.oninput=function(){slider(ice,iceNum)};
+
+function updatePenguin(){
+
+let t=temp.value;
+let h=hunger.value;
+let e=energy.value;
+let i=ice.value;
+
+if(h>65 && !night){
+
+if(stomachSound.paused){
+stomachSound.currentTime=0;
+stomachSound.play();
+}
+
+}else{
+stopSound(stomachSound);
+}
+
+if(e<28 && e>10 && !night){
+
+if(!energyPlayed){
+lowEnergySound.currentTime=0;
+lowEnergySound.play();
+energyPlayed=true;
+}
+
+}else{
+energyPlayed=false;
+}
+
+if(e<=10 || h>=95 || i<=5){
+penguin.src="penguin_dead.png";
+}
+else if(e<28){
+penguin.src="penguin_sleep.png";
+}
+else if(t>70){
+penguin.src="penguin_hot.png";
+}
+else if(h>65){
+penguin.src="penguin_hungry.png";
+}
+else if(i<30 || t<15){
+penguin.src="penguin_panic.png";
+}
+else{
+penguin.src="penguin_happy.png";
+}
+
+}
+
+function selectAcc(name,button){
+
+currentAcc=name;
+
+accessory.src=files[name];
+accessory.style.display=night?"none":"block";
+accessory.style.width="100px";
+accessory.style.left="160px";
+accessory.style.top="80px";
+accessory.style.filter="none";
+
+color.value=0;
+colorNum.innerHTML=0;
+
+document.querySelectorAll(".acc").forEach(
+x=>x.classList.remove("active")
+);
+
+button.classList.add("active");
+
+}
+
+color.oninput=function(){
+
+colorNum.innerHTML=color.value;
+
+if(currentAcc!=""){
+accessory.style.filter=
+"hue-rotate("+color.value+"deg) saturate(1.4)";
+}
+
+};
+
+function moveAcc(x,y){
+
+if(currentAcc=="")return;
+
+accessory.style.left=
+parseInt(accessory.style.left)+x+"px";
+
+accessory.style.top=
+parseInt(accessory.style.top)+y+"px";
+
+}
+
+function sizeAcc(x){
+
+if(currentAcc=="")return;
+
+let w=parseInt(accessory.style.width);
+
+accessory.style.width=
+Math.max(40,w+x)+"px";
+
+}
+
+accessory.onmousedown=function(e){
+
+dragging=true;
+
+startX=e.clientX;
+startY=e.clientY;
+
+startLeft=parseInt(accessory.style.left);
+startTop=parseInt(accessory.style.top);
+
+};
+
+document.onmousemove=function(e){
+
+if(!dragging)return;
+
+accessory.style.left=
+startLeft+(e.clientX-startX)+"px";
+
+accessory.style.top=
+startTop+(e.clientY-startY)+"px";
+
+};
+
+document.onmouseup=function(){
+dragging=false;
+};
+
+reset.onclick=function(){
+
+temp.value=40;
+hunger.value=30;
+energy.value=80;
+ice.value=80;
+
+tempNum.innerHTML=40;
+hungerNum.innerHTML=30;
+energyNum.innerHTML=80;
+iceNum.innerHTML=80;
+
+color.value=0;
+colorNum.innerHTML=0;
+
+currentAcc="";
+night=false;
+sleeping=false;
+energyPlayed=false;
+
+accessory.style.display="none";
+
+document.querySelectorAll(".acc").forEach(
+x=>x.classList.remove("active")
+);
+
+stage.style.backgroundImage='url("background.png")';
+
+dayBtn.classList.add("active");
+nightBtn.classList.remove("active");
+
+stopSound(snoringSound);
+stopSound(nightSound);
+stopSound(stomachSound);
+stopSound(lowEnergySound);
+stopSound(gaspSound);
+
+updatePenguin();
+};
+
+updatePenguin();
+
+</script>
+</body>
+</html>
